@@ -1,11 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-
-import { useWallet } from '@arbitrum/use-wallet'
-import { utils } from 'ethers'
+import { BigNumber, utils } from 'ethers'
 import { isAddress } from 'ethers/lib/utils'
+import { JsonRpcProvider } from '@ethersproject/providers'
 import Loader from 'react-loader-spinner'
 import { useLatest } from 'react-use'
+import { useWallet } from '@arbitrum/use-wallet'
+import { ArbTokenBridge } from 'token-bridge-sdk'
+import { ERC20__factory } from '@arbitrum/sdk/dist/lib/abi/factories/ERC20__factory'
 
 import { useAppState } from '../../state'
 import { ConnectionState, PendingWithdrawalsLoadedState } from '../../util'
@@ -17,16 +19,11 @@ import TransactionConfirmationModal, {
 } from '../TransactionConfirmationModal/TransactionConfirmationModal'
 import { TokenImportModal } from '../TokenModal/TokenImportModal'
 import { NetworkBox } from './NetworkBox'
-import useWithdrawOnly from './useWithdrawOnly'
 import {
   useNetworksAndSigners,
   UseNetworksAndSignersStatus
 } from '../../hooks/useNetworksAndSigners'
-import useL2Approve from './useL2Approve'
-import { BigNumber } from 'ethers'
-import { ERC20__factory } from '@arbitrum/sdk/dist/lib/abi/factories/ERC20__factory'
-import { ArbTokenBridge } from 'token-bridge-sdk'
-import { JsonRpcProvider } from '@ethersproject/providers'
+import { useSpecialCaseToken } from '../../hooks/useSpecialCaseToken'
 
 const isAllowedL2 = async (
   arbTokenBridge: ArbTokenBridge,
@@ -109,8 +106,9 @@ const TransferPanel = (): JSX.Element => {
   const [l1Amount, setL1AmountState] = useState<string>('')
   const [l2Amount, setL2AmountState] = useState<string>('')
 
-  const { shouldDisableDeposit } = useWithdrawOnly()
-  const { shouldRequireApprove } = useL2Approve()
+  const { isDepositDisabled, isL2ApprovalRequired } = useSpecialCaseToken(
+    selectedToken?.address
+  )
 
   useEffect(() => {
     if (importTokenModalStatus !== ImportTokenModalStatus.IDLE) {
@@ -308,7 +306,7 @@ const TransferPanel = (): JSX.Element => {
           const { decimals } = selectedToken
           const amountRaw = utils.parseUnits(amount, decimals)
           if (
-            shouldRequireApprove &&
+            isL2ApprovalRequired &&
             selectedToken.l2Address &&
             l2Signer?.provider
           ) {
@@ -340,7 +338,7 @@ const TransferPanel = (): JSX.Element => {
   const disableDeposit = useMemo(() => {
     const l1AmountNum = +l1Amount
     return (
-      shouldDisableDeposit ||
+      isDepositDisabled ||
       transferring ||
       l1Amount.trim() === '' ||
       (isDepositMode &&
