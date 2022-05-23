@@ -24,7 +24,7 @@ yarn-error.log*
 .pre-commit-config.yaml
 
 # built hooks files
-/dist
+# /dist
 docs
 
 # ide stuff
